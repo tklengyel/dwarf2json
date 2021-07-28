@@ -939,6 +939,27 @@ func processMachoSymTab(doc *vtypeJson, machoFile *macho.File, extract Extract) 
 	return nil
 }
 
+func (doc* vtypeJson) flattenStruct(structure *vtypeStruct) {
+	for fieldName, field := range structure.Fields {
+		if field.Anonymous {
+			anonymousStruct := doc.UserTypes[field.FieldType["name"].(string)]
+			doc.flattenStruct(anonymousStruct)
+			for anonymousStructFieldName, anonymousStructField := range anonymousStruct.Fields {
+				newField := anonymousStructField
+				newField.Offset += field.Offset
+				structure.Fields[anonymousStructFieldName] = newField
+			}
+			delete(structure.Fields, fieldName)
+		}
+	}
+}
+
+func (doc* vtypeJson) flattenAnonymousStructs() {
+	for _, userType := range doc.UserTypes {
+		doc.flattenStruct(userType)
+	}
+}
+
 func generateLinux(files FilesToProcess) (*vtypeJson, error) {
 
 	doc := newVtypeJson()
@@ -1018,6 +1039,7 @@ func generateLinux(files FilesToProcess) (*vtypeJson, error) {
 
 	}
 	doc.Metadata.Linux = linuxMeta
+	doc.flattenAnonymousStructs();
 	return doc, nil
 }
 
